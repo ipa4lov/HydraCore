@@ -284,7 +284,8 @@ std::vector<PlatformDevPair> listAllOpenCLDevices(const bool a_silendMode = fals
       std::cout << std::endl;
     }
   }
-
+  // QUICK FIX
+  factPlatroms = 1;
   for (size_t i = 0; i < factPlatroms; i++)
   {
     CHECK_CL(clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, MAXDEVICES_PER_PLATFORM, devices, &factDevs));

@@ -296,6 +296,7 @@ hydra_drv/shaders/mlt.xx
 hydra_drv/shaders/screen.xx
 hydra_drv/shaders/sort.xx
 hydra_drv/shaders/trace.xx
+build
 .idea/.name
 .idea/.name
 hydra_app/CMakeFiles/Makefile.cmake

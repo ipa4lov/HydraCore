@@ -91,6 +91,36 @@ const int findArgDataOffsetInTable(int a_texId, __global const int* a_table)
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
+
+void initFakeStack(float *stack, __global const float* st, float3 *results) {
+  int cnt = st[0];
+  for (int i = 0; i < cnt; ++i) {
+    if (st[1 + 2 * i] < 0) { // < 0, but 0.1 just to be sure
+      stack[i] = st[2 + 2 * i]; // skip size + every second value
+    } else {
+      int pt = st[1 + 2 * i]; // id of binded texture
+      int pt2 = st[2 + 2 * i];  // index inside float3 
+      float r;
+      if (pt2 == 0) {
+        r = results[pt].x;
+      } else if (pt2 == 1) {
+        r = results[pt].y;
+      } else if (pt2 == 2) {
+        r = results[pt].z;
+      } else if (pt2 == 3) {
+        r = 1;
+      }
+      stack[i] = r;
+    }
+  }
+}
+
+void evalProcTexture(int tex_number, bool is_head, int texture_id, __global const float *st, float *stack, float3 *results, __private ProcTextureList *ptl, __global const float4* restrict in_texStorage1, __global const EngineGlobals* restrict in_globals, const float3 hr_viewVectorHack, __private const SurfaceInfo* sHit) {
+    initFakeStack(stack, st, results);
+    //#PUT_YOUR_PROCEDURAL_TEXTURES_EVAL_HERE2
+}
+
 __kernel void ProcTexExec(__global       uint*          restrict a_flags,
                           __global const float4*        restrict in_rdir,        
                           __global const float4*        restrict in_surfaceHit,
@@ -178,11 +208,17 @@ __kernel void ProcTexExec(__global       uint*          restrict a_flags,
     ptl.fdata4[2] = make_float3(0, 0, 1);
     ptl.fdata4[3] = make_float3(0, 0, 1);
     ptl.fdata4[4] = make_float3(0, 0, 1);
-
+    float3 results[100];
+    float stack[100];
+    int tex_cnt = table[0];
+    int pt = 1;
+    for (int i = 0; i < tex_cnt; ++i) {
+      evalProcTexture(i, table[pt + 2], table[pt], fdata + table[pt + 1], stack, results, &ptl, in_texStorage1, in_globals, hr_viewVectorHack, sHit);
+      pt += 3;
+    }
     // (3) evaluate all proc textures
     //
-    //#PUT_YOUR_PROCEDURAL_TEXTURES_EVAL_HERE:
-
+    
     // (4) take what we need from all array
     //
     WriteProcTextureList(out_procTexData, tid, iNumElements, &ptl);

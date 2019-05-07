@@ -374,6 +374,7 @@ struct ProcTexParams
 {
   std::vector<float> data;
   int32_t            texId;
+  bool is_head;
 };
 
 IHRRenderDriver* CreateDriverRTE(const wchar_t* a_cfg, int w, int h, int a_devId, int a_flags, IHRSharedAccumImage* pExternalImage);

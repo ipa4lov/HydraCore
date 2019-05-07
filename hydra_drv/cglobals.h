@@ -2313,7 +2313,6 @@ static inline void WriteProcTextureList(__global float4* fdata, int tid, int siz
     idata[tid + size * finalProcTex] = INVALID_TEXTURE; // list end
 
   #ifdef OCL_COMPILER
-
   for(int i=0;i<finalProcTex;i+=2)
   {
     const float4 h1 = to_float4(a_pList->fdata4[i+0], 0.0f);

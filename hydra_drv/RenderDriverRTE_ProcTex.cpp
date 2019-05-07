@@ -74,7 +74,20 @@ void FindAllProcTextures(pugi::xml_node a_node, const std::unordered_map<int, Pr
     if (p2 != a_matNodes.end())
       FindAllProcTextures(p2->second, a_ids, a_matNodes, a_outVector);
   }
+  
+  if (!a_node.attribute(L"type").empty()) {
+    std::wstring ws = a_node.attribute(L"type").as_string();
+    std::string s( ws.begin(), ws.end() );
 
+    if (s == "inline_code") {
+      int id = a_node.attribute(L"val").as_int();
+      auto p = a_ids.find(id);
+      
+      if (p != a_ids.end()) {
+        a_outVector.push_back(std::tuple<int, ProcTexInfo>(p->first, p->second));
+      }
+    }
+  }
   if (std::wstring(a_node.name()) == L"texture")
   {
     const int32_t id = a_node.attribute(L"id").as_int();
@@ -92,6 +105,90 @@ void FindAllProcTextures(pugi::xml_node a_node, const std::unordered_map<int, Pr
 
 }
 
+int ReadRecursiveProcTexParams(pugi::xml_node a_node, std::vector<ProcTexParams>& a_procTexParams, bool is_head) {
+  std::vector<float> datav;
+  for (pugi::xml_node arg : a_node.children(L"arg"))
+  {
+    std::wstring type    = arg.attribute(L"type").as_string();
+    int32_t arraySize    = arg.attribute(L"size").as_int();
+    const wchar_t* value = arg.attribute(L"val").as_string();
+    std::wstring name = arg.attribute(L"name").as_string();
+    std::wstringstream strIn(value);
+    if (type == L"inline_code") {
+      int ret_id = ReadRecursiveProcTexParams(arg, a_procTexParams, false);
+      int cnt = arg.attribute(L"ret_cnt").as_int();
+      for (int i = 0; i < cnt; ++i) {
+        datav.push_back(ret_id);
+        datav.push_back(i);
+      }
+    }
+    if (type == L"sampler2D" || type == L"int")
+    {
+      for (int i = 0; i < arraySize; i++)
+      {
+        int x = 0;
+        strIn >> x;
+        datav.push_back(-10);
+        datav.push_back(as_float(x));
+      }
+    }
+    else if (type == L"float")
+    {
+      for (int i = 0; i < arraySize; i++)
+      {
+        float x = 0;
+        strIn >> x;
+        datav.push_back(-10);
+        datav.push_back(x);
+      }
+    }
+    else if (type == L"float2")
+    {
+      for (int i = 0; i < 2*arraySize; i++)
+      {
+        float x = 0;
+        strIn >> x;
+        datav.push_back(-10);
+        datav.push_back(x);
+      }
+    }
+    else if (type == L"float3")
+    {
+      for (int i = 0; i < 3 * arraySize; i++)
+      {
+        float x = 0;
+        strIn >> x;
+        datav.push_back(-10);
+        datav.push_back(x);
+      }
+    }
+    else if (type == L"float4")
+    {
+      for (int i = 0; i < 4 * arraySize; i++)
+      {
+        float x = 0;
+        strIn >> x;
+        datav.push_back(-10);
+        datav.push_back(x);
+      }
+    }
+
+  } // for for (pugi::xml_node arg : a_node.children(L"arg"))
+
+  ProcTexParams res;
+  res.data     = datav;
+  if (is_head) {
+    res.texId = a_node.attribute(L"id").as_int();
+    res.is_head = true;
+  }
+  else {
+    res.texId = a_node.attribute(L"val").as_int();
+    res.is_head = false;
+  }
+  
+  a_procTexParams.push_back(res);
+  return int(a_procTexParams.size()) - 1;
+}
 
 void ReadAllProcTexArgsFromMaterialNode(pugi::xml_node a_node, const std::unordered_map<int, pugi::xml_node >& a_matNodes, 
                                         std::vector<ProcTexParams>& a_procTexParams)
@@ -115,67 +212,8 @@ void ReadAllProcTexArgsFromMaterialNode(pugi::xml_node a_node, const std::unorde
   {
     if (std::wstring(a_node.attribute(L"type").as_string()) == L"texref_proc")
     {
-      std::vector<float> datav;
-      for (pugi::xml_node arg : a_node.children(L"arg"))
-      {
-        std::wstring type    = arg.attribute(L"type").as_string();
-        int32_t arraySize    = arg.attribute(L"size").as_int();
-        const wchar_t* value = arg.attribute(L"val").as_string();
-
-        std::wstringstream strIn(value);
-
-        if (type == L"sampler2D" || type == L"int")
-        {
-          for (int i = 0; i < arraySize; i++)
-          {
-            int x = 0;
-            strIn >> x;
-            datav.push_back(as_float(x));
-          }
-        }
-        else if (type == L"float")
-        {
-          for (int i = 0; i < arraySize; i++)
-          {
-            float x = 0;
-            strIn >> x;
-            datav.push_back(x);
-          }
-        }
-        else if (type == L"float2")
-        {
-          for (int i = 0; i < 2*arraySize; i++)
-          {
-            float x = 0;
-            strIn >> x;
-            datav.push_back(x);
-          }
-        }
-        else if (type == L"float3")
-        {
-          for (int i = 0; i < 3 * arraySize; i++)
-          {
-            float x = 0;
-            strIn >> x;
-            datav.push_back(x);
-          }
-        }
-        else if (type == L"float4")
-        {
-          for (int i = 0; i < 4 * arraySize; i++)
-          {
-            float x = 0;
-            strIn >> x;
-            datav.push_back(x);
-          }
-        }
-
-      } // for for (pugi::xml_node arg : a_node.children(L"arg"))
-
-      ProcTexParams res;
-      res.data     = datav;
-      res.texId    = a_node.attribute(L"id").as_int();
-      a_procTexParams.push_back(res);
+      ReadRecursiveProcTexParams(a_node, a_procTexParams, true);
+      return;
     }
   }
 
@@ -183,8 +221,56 @@ void ReadAllProcTexArgsFromMaterialNode(pugi::xml_node a_node, const std::unorde
     ReadAllProcTexArgsFromMaterialNode(child, a_matNodes, a_procTexParams);
 }
 
-
 void PutTexParamsToMaterialWithDamnTable(std::vector<ProcTexParams>& a_procTexParams, const std::unordered_map<int, ProcTexInfo>& a_allProcTextures,
+                                         std::shared_ptr<RAYTR::IMaterial> a_pMaterial)
+{
+  if (a_procTexParams.size() == 0)
+    return;
+  
+  // estimate needed size
+  //
+  int allSize = 1; // Extra one for number of parameters
+  int cnt = a_procTexParams.size();
+  for (auto param: a_procTexParams) {
+    allSize += int(param.data.size()) * 2;
+  }
+  // allocate memory in 'prtexDataTail.data' and get pointer
+  //
+  const int numOfMaterialPagesForArgData = allSize / PLAIN_MATERIAL_DATA_SIZE + 1;
+  a_pMaterial->prtexDataTail.data.resize(numOfMaterialPagesForArgData);
+  float* data = &(a_pMaterial->prtexDataTail.data[0].data[0]);
+
+  // fill table and put args
+  //
+  int* table  = (int*)(&a_pMaterial->prtexDataTail.offsetTable.data[0]);
+
+  const int MAX_TABLE_SIZE  = PLAIN_MATERIAL_DATA_SIZE;
+  const int MAX_TABLE_ELEMS = (MAX_TABLE_SIZE - 1)/3;
+
+  int counter    = 0;
+  int currOffset = 0;
+  table[0] = min(MAX_TABLE_ELEMS, int(a_procTexParams.size()));
+  for (const auto &param: a_procTexParams) 
+  { 
+    if (counter < MAX_TABLE_ELEMS)
+    {
+      table[counter * 3 + 1] = param.texId;
+      table[counter * 3 + 2] = currOffset;
+      table[counter * 3 + 3] = param.is_head;
+      data[currOffset++] = param.data.size() / 2; // Because two values per parameter
+      for (int i = 0; i < param.data.size(); i++) {
+        data[currOffset + i] = param.data[i];
+      }
+
+      currOffset += int(param.data.size());
+      counter++;
+    }
+  }
+  //table[MAX_TABLE_SIZE - 1] = counter; // write total proc textures number here
+
+}
+
+/*void PutTexParamsToMaterialWithDamnTable(std::vector<ProcTexParams>& a_procTexParams, const std::unordered_map<int, ProcTexInfo>& a_allProcTextures,
                                          std::shared_ptr<RAYTR::IMaterial> a_pMaterial)
 {
   if (a_procTexParams.size() == 0)
@@ -247,7 +333,7 @@ void PutTexParamsToMaterialWithDamnTable(std::vector<ProcTexParams>& a_procTexPa
 
   table[MAX_TABLE_SIZE - 1] = counter; // write total proc textures number here
 
-}
+}*/
 
 
 ProcTextureList MakePTListFromTupleArray(const std::vector<std::tuple<int, ProcTexInfo> >& procTextureIds)
@@ -524,34 +610,29 @@ void RenderDriverRTE::EndTexturesUpdate()
   while (std::getline(m_inProcTexFile, line))
   {
     m_outProcTexFile << line.c_str() << std::endl;
-    if (line.find("#PUT_YOUR_PROCEDURAL_TEXTURES_EVAL_HERE:") != std::string::npos)
-    {
+    if (line.find("#PUT_YOUR_PROCEDURAL_TEXTURES_EVAL_HERE2") != std::string::npos) {
       m_outProcTexFile << std::endl;
       m_outProcTexFile << spaces.c_str() << "int counter = 0; " << std::endl;
-      int counter = 0;
-      for (auto ptex : m_procTextures)
-      {
+      for (const auto &ptex : m_procTextures) {
         if(ptex.second.call == "")
         {
           std::cerr << "[HydraCore]: RenderDriverRTE::EndTexturesUpdate, empty texture call code, id =  " << ptex.first << std::endl;
         }
 
-        m_outProcTexFile << "    if(materialHeadHaveTargetProcTex(pHitMaterial," << ptex.first << ") && counter < MAXPROCTEX)" << std::endl;
-        m_outProcTexFile << "    {" << std::endl;
-        m_outProcTexFile << spaces.c_str() << "  __global const float* stack = fdata + findArgDataOffsetInTable(" << ptex.first << ", table);" << std::endl;
-        m_outProcTexFile << spaces.c_str() << "  " << "ptl.fdata4[counter] = to_float3(" << ptex.second.call.c_str() << ");" << std::endl;
-        m_outProcTexFile << spaces.c_str() << "  " << "ptl.id_f4 [counter] = "           << ptex.first << ";" << std::endl;
-        m_outProcTexFile << spaces.c_str() << "  " << "counter++;" << std::endl;
+        m_outProcTexFile << "    if (texture_id == " << ptex.first << ") {" << std::endl;
+        m_outProcTexFile << "      results[tex_number] = to_float3(" << ptex.second.call.c_str() << ");" << std::endl;
+        m_outProcTexFile << "      if (is_head) {" << std::endl;
+        m_outProcTexFile << "        ptl->fdata4[counter] = results[tex_number];" << std::endl;
+        m_outProcTexFile << "        ptl->id_f4 [counter] = "           << ptex.first << ";" << std::endl;
+        m_outProcTexFile << "        counter++;" << std::endl;
+        m_outProcTexFile << "      }" << std::endl;
         m_outProcTexFile << "    }" << std::endl;
-        m_outProcTexFile << std::endl;   
-        counter++;
-      }
-
-      m_outProcTexFile << spaces.c_str() << "ptl.currMaxProcTex = counter;";
+        }
+      m_outProcTexFile << spaces.c_str() << "ptl->currMaxProcTex = counter;";
       m_outProcTexFile << std::endl;
 
       std::string currtime = currentDateTime();
-      m_outProcTexFile << "    // BREAK SHADER CACHE AT: " << currtime << "\n";
+      m_outProcTexFile << "    // BREAK SHADER CACHE AT: " << currtime << std::endl;  
     }
   }
 
@@ -576,6 +657,7 @@ void RenderDriverRTE::EndTexturesUpdate()
 
 bool RenderDriverRTE::UpdateImageProc(int32_t a_texId, int32_t w, int32_t h, int32_t bpp, const void* a_data, pugi::xml_node a_texNode)
 {
+  std::cerr << "UPDATING_TEX" << a_texId << std::endl;
   std::regex tail("_PROCTEXTAILTAG_");
   std::regex stack("stack\\[");
 
